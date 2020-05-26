@@ -243,13 +243,17 @@ function sparkpost_civicrm_post( $op, $objectName, $objectId, &$objectRef ) {
 function sparkpost_civicrm_alterMailParams(&$params, $context) {
   if (stripos($params['From'], 'hofferforauditor')) {
     $params['html'] = str_replace('zuckermanforvt.jmaconsulting.biz', 'hoffer.jmaconsulting.biz', $params['html']);
+    $params['html'] = str_replace('mail.zuckermanforvt.com', 'crm.hofferforauditor.com', $params['html']);
     $params['text'] = str_replace('zuckermanforvt.jmaconsulting.biz', 'hoffer.jmaconsulting.biz', $params['text']);
+    $params['text'] = str_replace('mail.zuckermanforvt.com', 'crm.hofferforauditor.com', $params['text']);
   }
   if (stripos($params['from'], 'do-not-reply') && CRM_Sparkpost::isHoffer()) {
     $params['from'] = '"Doug Hoffer for Auditor" <do-not-reply@hofferforauditor.com>';
     $params['replyTo'] = $params['returnPath'] = 'do-not-reply@hofferforauditor.com';
     $params['html'] = str_replace('zuckermanforvt.jmaconsulting.biz', 'hoffer.jmaconsulting.biz', $params['html']);
+    $params['html'] = str_replace('mail.zuckermanforvt.com', 'crm.hofferforauditor.com', $params['html']);
     $params['text'] = str_replace('zuckermanforvt.jmaconsulting.biz', 'hoffer.jmaconsulting.biz', $params['text']);
+    $params['text'] = str_replace('mail.zuckermanforvt.com', 'crm.hofferforauditor.com', $params['text']);
   }
   elseif (stripos($params['from'], 'do-not-reply')) {
     $params['replyTo'] = $params['returnPath'] = 'bounces@ltgovzuckerman.com';
