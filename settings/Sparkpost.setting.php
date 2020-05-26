@@ -5,7 +5,7 @@
 
 require_once(__DIR__ . "/../CRM/Sparkpost.php");
 
-return array(
+$settings = [
   'sparkpost_host' => array(
     'group_name' => CRM_Sparkpost::SPARKPOST_EXTENSION_SETTINGS,
     'group' => 'com.cividesk.email.sparkpost',
@@ -64,4 +64,11 @@ return array(
     'description' => 'Use backup mailer?',
     'help_text' => 'The backup mailer will be used if Sparkpost cannot send emails (unverified sending domain, sending limits exceeded, ...).',
   ),
-);
+];
+
+foreach ($settings as $settingName => $setting) {
+  $hofferSetting = $setting;
+  $hofferSetting['name'] = 'hoffer_' . $setting['name'];
+  $settings['hoffer_' . $settingName] = $hofferSetting;
+}
+return $settings;

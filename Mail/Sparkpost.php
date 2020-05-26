@@ -44,7 +44,7 @@ class Mail_Sparkpost extends Mail {
   /**
    * Send an email
    */
-  public function send($recipients, $headers, $body) {
+  public function send($recipients, $headers, $body, $isHoffer = FALSE) {
     if (defined('CIVICRM_MAIL_LOG')) {
       CRM_Utils_Mail::logger($recipients, $headers, $body);
       if(!defined('CIVICRM_MAIL_LOG_AND SEND')) {
@@ -54,7 +54,7 @@ class Mail_Sparkpost extends Mail {
 
     // Has the SparkPost service failed before in this mailing?
     if (Mail_Sparkpost::$unavailable) {
-      if (CRM_Sparkpost::getSetting('sparkpost_useBackupMailer') && $this->backupMailer) {
+      if (CRM_Sparkpost::getSetting('sparkpost_useBackupMailer', $isHoffer) && $this->backupMailer) {
         return $this->backupMailer->send($recipients, $headers, $body);
       }
       return new PEAR_Error("The SparkPost service is unavailable due to a sending error, and the backup mailer is not enabled or not configured.");
@@ -70,7 +70,11 @@ class Mail_Sparkpost extends Mail {
       return $headerElements;
     }
     list($from, $textHeaders) = $headerElements;
-
+    // if the From address has hoffer in it use the hoffer settings.
+    $hoffer = FALSE;
+    if (stripos($from, 'hoffer') !== FALSE) {
+      $hoffer = TRUE;
+    }
     // Default options: do not track opens and clicks as CiviCRM does it
     $request_body = array(
       'options' => array(
@@ -79,7 +83,7 @@ class Mail_Sparkpost extends Mail {
       )
     );
     // Should we send via a dedicated IP pool?
-    $ip_pool = CRM_Sparkpost::getSetting('sparkpost_ipPool');
+    $ip_pool = CRM_Sparkpost::getSetting('sparkpost_ipPool', $hoffer);
     if (!empty($ip_pool)) {
       $request_body['options']['ip_pool'] = $ip_pool;
     }
@@ -101,12 +105,12 @@ class Mail_Sparkpost extends Mail {
     );
 
     try {
-      $result = CRM_Sparkpost::call('transmissions', array(), $request_body);
+      $result = CRM_Sparkpost::call('transmissions', array(), $request_body, $hoffer);
     } catch (Exception $e) {
       if ($e->getCode() == CRM_Sparkpost::FALLBACK) {
         // Let's redirect this and all further sends to the backup mailer
         Mail_Sparkpost::$unavailable = TRUE;
-        return $this->send($recipients, $headers, $body);
+        return $this->send($recipients, $headers, $body, $hoffer);
       }
       return new PEAR_Error($e->getMessage());
     }

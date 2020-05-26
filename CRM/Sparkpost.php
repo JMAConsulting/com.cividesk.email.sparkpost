@@ -23,33 +23,53 @@
  */
 
 class CRM_Sparkpost {
+
+  public static function isHoffer($hoffer = FALSE) {
+    if ($hoffer) {
+      return $hoffer;
+    }
+    $config = CRM_Core_Config::singleton();
+    if (strpos($config->userFrameworkBaseURL, 'hoffer') !== FALSE) {
+      return TRUE;
+    }
+    return FALSE;
+  }
+
   const SPARKPOST_EXTENSION_SETTINGS = 'SparkPost Extension Settings';
   // Indicates we need to try sending emails out through an alternate method
   const FALLBACK = 1;
 
-  public static function setSetting($setting, $value) {
+  public static function setSetting($setting, $value, $hoffer = FALSE) {
     // Encrypt API key before storing in database
     if ($setting == 'sparkpost_apiKey') {
       $value = CRM_Utils_Crypt::encrypt($value);
     }
+    $isHoffer = self::isHoffer($hoffer);
+    if ($isHoffer) {
+      $setting = 'hoffer_' . $setting;
+    }
     return Civi::settings()->set($setting, $value);
   }
 
-  public static function getSetting($setting = NULL) {
+  public static function getSetting($setting = NULL, $hoffer = FALSE) {
     // Start with the default values for settings
     $settings = array(
       'sparkpost_useBackupMailer' => false,
       'sparkpost_host' => 'sparkpost.com',
     );
+    $isHoffer = self::isHoffer($hoffer);
     // Merge the settings defined in DB (no more groups in 4.7, so has to be one by one ...)
-    foreach (array('sparkpost_apiKey', 'sparkpost_useBackupMailer', 'sparkpost_campaign', 'sparkpost_ipPool', 'sparkpost_customCallbackUrl', 'sparkpost_host' ) as $name) {
-      $value = Civi::settings()->get($name);
+    foreach (array('sparkpost_apiKey', 'sparkpost_useBackupMailer', 'sparkpost_campaign', 'sparkpost_ipPool', 'sparkpost_customCallbackUrl', 'sparkpost_host') as $name) {
+      $settingName = $isHoffer ? 'hoffer_' . $name : $name;
+      $value = Civi::settings()->get($settingName);
       if (!is_null($value)) {
         $settings[$name] = $value;
       }
     }
     // Decrypt API key before returning
-    $settings['sparkpost_apiKey'] = CRM_Utils_Crypt::decrypt($settings['sparkpost_apiKey']);
+    if (!empty($settings['sparkpost_apiKey'])) {
+      $settings['sparkpost_apiKey'] = CRM_Utils_Crypt::decrypt($settings['sparkpost_apiKey']);
+    }
     // And finaly returm what was asked for ...
     if (!empty($setting)) {
       return CRM_Utils_Array::value($setting, $settings);
@@ -75,23 +95,24 @@ class CRM_Sparkpost {
    * @param $path    Method path
    * @param $params  Method parameters (translated as GET arguments)
    * @param $content Method content (translated as POST arguments)
+   * @param $hoffer bool are we sending for doug hoffer or not.
    *
    * @see https://developers.sparkpost.com/api/
    */
-  public static function call($path, $params = array(), $content = array()) {
+  public static function call($path, $params = array(), $content = array(), $hoffer = FALSE) {
     // Get the API key from the settings
-    $authorization = CRM_Sparkpost::getSetting('sparkpost_apiKey');
+    $authorization = CRM_Sparkpost::getSetting('sparkpost_apiKey', $hoffer);
     if (empty($authorization)) {
       throw new Exception('No API key defined for SparkPost');
     }
 
     // Deal with the campaign setting
-    if (($path =='transmissions') && ($campaign = CRM_Sparkpost::getSetting('sparkpost_campaign'))) {
+    if (($path =='transmissions') && ($campaign = CRM_Sparkpost::getSetting('sparkpost_campaign', $hoffer))) {
       $content['campaign_id'] = $campaign;
     }
 
     // Initialize connection and set headers
-    $sparkpost_host = CRM_Sparkpost::getSetting('sparkpost_host');
+    $sparkpost_host = CRM_Sparkpost::getSetting('sparkpost_host', $hoffer);
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, "https://api.$sparkpost_host/api/v1/$path");
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
@@ -120,7 +141,7 @@ class CRM_Sparkpost {
     }
     $data = curl_exec($ch);
     if (curl_errno($ch)) {
-      throw new Exception('Sparkpost curl error: '. curl_error($ch));
+      throw new Exception('Sparkpost curl error: ', curl_error($ch));
     }
     $curl_info = curl_getinfo($ch);
     curl_close($ch);
